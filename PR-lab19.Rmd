@@ -1,0 +1,133 @@
+---
+title: "PR-lab19"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(gapminder)
+```
+
+# A.
+## 1.
+```{r}
+gapminder %>%
+  filter(gdpPercap < 50000) %>%
+  ggplot(aes(x = gdpPercap, y = lifeExp)) +
+  geom_point()
+```
+
+## 2.
+```{r}
+gapminder %>%
+  filter(gdpPercap < 50000) %>%
+  ggplot(aes(x = gdpPercap, y = lifeExp, color = continent, size = pop)) +
+  geom_point(alpha = 0.5) +
+  scale_colour_brewer(palette = "Set1")
+```
+
+## 3.
+```{r}
+gapminder %>%
+  filter(gdpPercap < 50000) %>%
+  ggplot(aes(x = gdpPercap, y = lifeExp, color = continent, size = pop)) +
+  scale_x_continuous(trans = 'log') +
+  geom_point(alpha = 0.5) +
+  scale_colour_brewer(palette = "Set1") +
+  geom_smooth(method = "lm", se = FALSE, color = "black")
+```
+
+## 4.
+```{r}
+gapminder %>%
+  filter(gdpPercap < 50000) %>%
+  ggplot(aes(x = gdpPercap, y = lifeExp, color = factor(year), size = pop)) +
+  scale_x_continuous(trans = 'log') +
+  geom_point(alpha = 0.5) +
+  scale_colour_brewer(palette = "Set1") +
+  geom_smooth(method = "lm", se = FALSE, color = "black") +
+  facet_wrap(~continent)
+```
+
+# B.
+## 5.
+```{r}
+model <- lm(gdpPercap ~ lifeExp, data = gapminder)
+summary(model)
+# By looking at the p-value (2.2e-16), it is significantly less than 0.05 which indicates that the relationship is statistically significant enough
+# Another point to bring is that lifeExp has a coefficient of 445.44 that indicates a positive correlation between gdpPercap and lifeExp. The adjusted R-squared value is also at 34% which means that 34% of the variation in data of gdpPercap can be explained by lifeExp
+```
+
+## 6.
+```{r}
+model_gdp_pop <- lm(gdpPercap ~ pop, data = gapminder)
+summary(model_gdp_pop)
+# The p-value for this model is 0.291 which is a lot higher than 0.05. This indicates that the difference is not significant enough, thus saying that population is not a significant predictor of gdpPercap
+```
+
+## 7.
+```{r}
+only_numerical <- gapminder %>% select_if(is.numeric)
+model_numerical <- lm(gdpPercap ~ ., data = only_numerical)
+summary(model_numerical)
+```
+
+## 8.
+```{r}
+attributes(model)
+model$residuals
+model$coefficients
+```
+
+## 9.
+```{r}
+data(mtcars)
+mtcars_subset <- mtcars %>% filter(gear < 5)
+
+model_mpg_hp <- lm(mpg ~ hp, data = mtcars_subset)
+model_mpg_wt <- lm(mpg ~ wt, data = mtcars_subset)
+model_mpg_disp <- lm(mpg ~ disp, data = mtcars_subset)
+model_mpg_qsec <- lm(mpg ~ qsec, data = mtcars_subset)
+
+summary(model_mpg_hp)$coefficients
+summary(model_mpg_wt)$coefficients
+summary(model_mpg_disp)$coefficients
+summary(model_mpg_qsec)$coefficients
+
+# Only qsec have a positive correlation with mpg, it has a coefficient of 1.957424
+```
+
+# C.
+## 10.
+```{r}
+mtcars$three.gears <- ifelse(mtcars$gear == 3, 1, 0)
+mtcars$three.gears <- as.factor(mtcars$three.gears)
+
+model_3_gears <- glm(three.gears ~ cyl + hp, data = mtcars, family = "binomial")
+summary(model_3_gears)
+# By the result of the above model, it seems that cyl is the only variable that can distinguish between cars with 3 gears and others with it's p-value (0.00557) being less than 0.05. On the other hand, hp have a p-value (0.06017) of more than 0.05, so hp is not a significant predictor for 3 gears cars.
+
+# Rerun logistic regression with only cyl:
+rerun_model_3_gears <- glm(three.gears ~ cyl, data = mtcars, family = "binomial")
+summary(rerun_model_3_gears)
+
+# Calculate McFadden's R-squared
+null_model <- glm(three.gears ~ 1, data = mtcars, family = "binomial")
+
+1 - deviance(rerun_model_3_gears) / deviance(null_model)
+# The result of the McFadden's pseudo R-squared value is 0.390666
+# Any value between 0.2 to 0.4 indicates a good model fit. So, with the result of this model I can say that it is a good fit over the classified data
+```
+
+## 11.
+```{r}
+model_vs_drat <- glm(vs ~ drat, data = mtcars, family = "binomial")
+
+summary(model_vs_drat)
+# The cars can be divided between v-shaped engines and others by drat. This is shown by its p-value (0.0218) that is less than 0.05
+
+null_model_vs <- glm(vs ~ 1, data = mtcars, family = "binomial")
+
+1 - deviance(model_vs_drat) / deviance(null_model_vs)
+# However, from the McFadden's pseudo R-squared value which is 0.1527882, it seems that this model is not a good enough fit over the classified data
+```

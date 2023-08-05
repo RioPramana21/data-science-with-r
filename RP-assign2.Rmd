@@ -1,0 +1,244 @@
+---
+title: "Assignment2"
+author: "Rio Pramana" 
+date: '2023 5 17 '
+output: html_document
+---
+
+This is a graded assignment for your course. Fill out and submit this file (e.g. HJW-assign2.Rmd) through iCampus’s “Assignment” interface. Questions that require "Code" should be supplied with R code that can be run from your file. Any answer/information/comment that is not a runnable R code should be typed in a line stating with # in the R script so that when your whole file is run, there are NO errors.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load the packages (make sure they are installed first):
+tidyverse - includes ggplot2, dplyr, magrittr and various others 
+laeken - contains 2 survey datasets, ses and eusilc
+```{r}
+#install.packages("laeken")
+library(tidyverse)
+library(laeken)
+```
+
+# 1. Load the ses dataset. Use help(ses) to understand the column names better. Use dplyr and piping to answer the following questions.
+```{r}
+data(ses)
+help(ses)
+```
+
+
+# 1a) Get all information related to female employment in eastern Austria (location AT1). [3]
+```{r}
+female_AT1 <- ses %>% filter(sex == "female", location == "AT1")
+
+female_AT1
+```
+
+
+# 1b) What is the age range with the most number of female workers in eastern Austria? [5]
+```{r}
+female_AT1 %>% 
+  count(age) %>% 
+  top_n(1)
+# The age range with the most number of female workers in eastern Austria is (39,49] with 769 female workers
+```
+
+
+# 1c) Find the education level with the lowest and the highest earnings at each location. Find the education level with the lowest and the highest earnings at each location. Use min_rank() and order by location in alphabetical order. The lowest earning should appear before the highest earning for each location. Return only these 3 columns: location, earnings, education. [5]
+```{r}
+ses %>%
+  group_by(location, education) %>%
+  summarise(earnings = mean(earnings, na.rm = TRUE)) %>%
+  mutate(rank = min_rank(earnings)) %>%
+  filter(rank %in% range(rank)) %>%
+  arrange(location, earnings) %>%
+  select(location, earnings, education)
+```
+
+
+# 1d) Get summary statistics for each location; 1) average earnings avg_earn 2) the maximum earnings max_earn 3) minimum earnings min_earn and 4) difference between maximum and minimum earnings diff_earn. Arrange by the biggest diff_earn to the smallest. [5]
+```{r}
+summary_stats_by_loc <- ses %>%
+  group_by(location) %>%
+  summarise(
+    avg_earn = mean(earnings, na.rm = TRUE),
+    max_earn = max(earnings, na.rm = TRUE),
+    min_earn = min(earnings, na.rm = TRUE),
+    diff_earn = max(earnings, na.rm = TRUE) - min(earnings, na.rm = TRUE)
+  ) %>%
+  arrange(desc(diff_earn))
+
+summary_stats_by_loc
+```
+
+
+# 1e) Use ggplot(), to create a bar plot of the difference between the maximum and minimum earnings, diff_earn for each location. You can use the result of d) for the plot. [5]
+```{r}
+ggplot(summary_stats_by_loc, aes(x = location, y = diff_earn)) + 
+  geom_bar(stat = "identity")
+```
+
+
+# 1f) Create a scatter plot of working hours (hoursPaid) versus earningsMonth splitting by colour using fullPart and faceted by education. To make the plot clearer, transform the x and y variables by log. At each education level, explain the relationship among the variables (working hours, earningsMonth, fullPart and education) [7]
+```{r}
+ggplot(ses, aes(x = hoursPaid, y = earningsMonth, color = fullPart)) + 
+  geom_point() + 
+  scale_x_continuous(trans = 'log') +
+  scale_y_continuous(trans = 'log') +
+  facet_wrap(~ education)
+
+# ISCED 0 and 1:
+## With the ISCED 0 and 1, there are not many data points but it shows that Part Time workers usually have less paid working hours than the Full Time workers. But the consequence is the FT worker have a higher earningsMonth in general then the PT workers
+
+# ISCED 2:
+## For ISCED 2, there are many data points. The plot shows that almost all FT workers have a higher minimum paid working hours than the total of paid working hours for PT workers. Interestingly, the plot shows that even PT workers with much less paid working hours can have a similar earningsMonth with the FT workers. However, FT workers have a higher bound/max in terms of earningsMonth (they can earn more than what PT workers can get)
+
+# ISCED 3 and 4:
+## This education level has the most data points. The trend in the plot shows a similar pattern to ISCED 2. However, the big difference between ISCED 3 and 4 with ISCED 2 is: ISCED 3 and 4 seems to have a much better minimum/lowest bound and maximum/highest bound of earningsMonth. So ISCED 3 and 4 in general is earning better than ISCED 2
+
+# ISCED 5A:
+## ISCED 5A have less data points than ISCED 2. The patterns shown is again the same with other education level. However, the main difference is ISCED 5A workers have a much higher starting/lowest point in terms of earningMonth than the other education level (except ISCED 5B) in general
+
+# ISCED 5B:
+## The patterns are the same with ISCED 5A. But, the starting point for the earningsMonth is the highest (this education level in general have a really high minimum earningsMonth compared to other education levels)
+
+# So, in general, if the worker is FT, then they will most likely have a much higher paid working hours than the PT workers, even though they also have the chance to earn the most money (having a higher max). The education levels seems to have a trend starting from ISCED 2 where the higher the education level is, the better the minimum pay will be in general
+```
+
+
+
+#####
+# 2. Load the eusilc dataset. Use help(eusilc) to understand the column names better.
+```{r}
+data(eusilc)
+help(eusilc)
+```
+
+
+# 2a) Inspect the values for the variable age. Is there any problem with the values for age? If so, filter problematic values of age using filter function. Save the result in the data frame, eusilc and use it to answer questions b) to d). [4]
+```{r}
+summary(eusilc$age)
+# The problem is there are invalid ages (negative age)
+eusilc <- eusilc %>% filter(age > 0)
+summary(eusilc$age)
+```
+
+
+# 2b) Find the maximum, minimum and average of cash income (py010n) and unemployment benefit (py090n) by each citizenship (pb220a). Use the values of py010n and py090n that are more than 0. [6]
+```{r}
+eusilc %>%
+  filter(py010n > 0 & py090n > 0) %>%
+  group_by(pb220a) %>%
+  summarise(
+    max_cash_income = max(py010n, na.rm = TRUE),
+    min_cash_income = min(py010n, na.rm = TRUE),
+    avg_cash_income = mean(py010n, na.rm = TRUE),
+    max_unemployment_benefit = max(py090n, na.rm = TRUE),
+    min_unemployment_benefit = min(py090n, na.rm = TRUE),
+    avg_unemployment_benefit = mean(py090n, na.rm = TRUE)
+  )
+```
+
+
+# 2c) Among the people who received survivor benefits (py110n), sickness benefits (py120n) and disability benefits (py130n), count the number of people who received all the benefits as all.benefits, the number of people who received just two of these benefits as two.benefits, the number of people who received just one benefit as one.benefit and the number of people who received at least one benefits as TOTAL. Do this for each economic status (pl030). In which economic status did people receive the most number of benefits? Is there any relationship between economic status and the received benefits? Justify your opinion. [12]
+```{r}
+eusilc %>%
+  group_by(pl030) %>%
+  summarise(
+    all_benefits = sum((py110n > 0) & (py120n > 0) & (py130n > 0), na.rm = TRUE),
+    two_benefits = sum(((py110n > 0) + (py120n > 0) + (py130n > 0)) == 2, na.rm = TRUE),
+    one_benefit = sum(((py110n > 0) + (py120n > 0) + (py130n > 0)) == 1, na.rm = TRUE),
+    TOTAL = sum((py110n > 0) | (py120n > 0) | (py130n > 0), na.rm = TRUE)
+  )
+# From the data, I can see that p1030 number 5 (which are for people in retirement) have the most benefits in total. This makes sense because in reality, they are the ones who need and deserves it the most. p1030 level 1 also have a lot of benefits and this might be cause by their status as FT worker and companies usually give benefits as part of their contracts
+
+# Overall, by observing the data and the description of each economic status and benefits, it makes sense to say that there are relationships (by numbers and by logical relationship) between economic status and their received benefits. Some economic status will receive more benefits than others
+```
+
+
+# 2d) Calculate a person’s total income as income. A person’s total income is given as the sum of income from land (hy040n), family allowance (hy050n), housing allowance (hy070n), cash received (hy080n), capital investment (hy090n) and income under 16 (hy110n) minus the cash paid (hy130n). Get the average income for each household. You may want to mutate a column for the total income and then work out the average for each household. [6]
+```{r}
+eusilc %>%
+  mutate(
+    total_income = hy040n + hy050n + hy070n + hy080n + hy090n + hy110n - hy130n
+  ) %>%
+  group_by(db030) %>%
+  summarise(avg_income = mean(total_income, na.rm = TRUE))
+```
+
+
+# 2e) Using the income in d), find the mean income per household size (hsize) as avg.income. Save the result in a new data frame df. Then pipe df to ggplot() to plot hsize against the avg.income and draw a linear line without the confidence interval. [6]
+```{r}
+df <- eusilc %>%
+  mutate(
+    total_income = hy040n + hy050n + hy070n + hy080n + hy090n + hy110n - hy130n
+  ) %>%
+  group_by(hsize) %>%
+  summarise(avg.income = mean(total_income, na.rm = TRUE))
+
+df %>% 
+  ggplot(aes(x = hsize, y = avg.income)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+
+```
+ 
+ 
+# 2f) Using df, perform linear regression to see if household size affects avg.income. Save the model as fit1. What’s the linear formula? Seeing the summary of linear regression, can you say that household size influences the average income per household size? Explain. [6]
+```{r}
+fit1 <- lm(avg.income ~ hsize, data = df)
+fit1
+summary(fit1)
+
+#The linear formula for the regression is:
+# avg.income = -842.9 + 1791.0 * hsize
+
+# Looking at the summary of the linear regressions, I can say that hsize influences the avg.income. First of all, the p-value we got is less than 0.05 (0.000234) so it's a good indicator that hsize have a statistically significant enough influence on avg.income
+# Second, The coefficient for hsize in the formula is 1791, which will influence the avg.income value heavily since the intercept is only -842.9. So the bigger the hsize, the bigger the avg.income will be in a significant way
+# Third point is that we have a R-squared value of 87,13% which means that around 87.13% of the various values of avg.income can be explained by hsize (strong correlation)
+```
+
+
+# 2g) Filter all data within federal state Austria (there are Upper Austria and Lower Austria). From this, create a new column named pIncome containing the sum of employee cash (py010n), cash benefits (py050n), unemployment benefits (py090n), old-age benefits (py100n), survivor’s benefits (py110n), sickness benefits (py120n), disability benefits (py130n) and education allowance (py140n). Save the result to a new data frame, person_df. Using person_df, draw a stacked bar plot of economic status (pl030) against pIncome split by gender (fill different colours in the bar for male and female). Use labs() to give the appropriate labelling for the axes, legend and <Your name>. A sample is given in the bar below. Explain the stacked bar. [13]
+```{r}
+person_df <- eusilc %>%
+  filter(grepl("Austria", db040)) %>%
+  mutate(
+    pIncome = py010n + py050n + py090n + py100n + py110n + py120n + py130n + py140n
+  ) %>%
+  group_by(pl030, rb090) %>%
+  summarise(pIncome = sum(pIncome, na.rm = TRUE))
+
+ggplot(person_df, aes(x = pl030, y = pIncome, fill = rb090)) +
+  geom_bar(stat = "identity") +
+  labs(
+    x = "Economic status",
+    y = "Income and Benefits", 
+    fill = "Gender",
+    title = "Income by economic status and gender in Upper and Lower Austria",
+    subtitle = "Author: Rio Pramana"
+    )
+
+# The stacked bar plot shows the income and benefits between each economic status. We also have the stacked bars that shows us the difference in value between male and female (For example, in economic status 1, we can see that male have a taller bar stacked on top of the female bar which indicates that the pIncome of male in economic status 1 is much higher when compared to female)
+```
+
+
+# 2h) Using the new data from g), make a linear regression to relate dependent variable, pIncome with income status pl030. What’s the formula of this regression? Is this linear relationship significant? Explain your answer. [7]
+```{r}
+person_df$pl030 <- as.factor(person_df$pl030)
+
+fit2 <- lm(pIncome ~ pl030, data = person_df)
+fit2
+summary(fit2)
+
+# The linear formula:
+# pIncome = 19975719 - 17364764*pl0302 - 19148074*pl0303 - 19734914*pl0304 - 10312742*pl0305 - 19689351*pl0306 - 19375980*pl0307
+
+# Overall, based on the p-value, economic status 2, 3, 4, 6, and 7 is significant because they are less that 0.05 while economic status 1 and 5 have a p-value of more than 0.05 that indicates they are not statistically significant enough
+
+# THe overall p-value is a little bit above 0.05 (0.05005) which could tell us that p1030 has somewhat of a significance to pIncome but might not be strong
+```
+
+
+
+
